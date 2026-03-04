@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-// Use mock controller (no FFmpeg required)
-const streamController = require('./streamController-mock');
+// Use pure JS controller (NO dependencies required!)
+const streamController = require('./streamController-nocanvas');
 
 // Start stream endpoint
 router.post('/start-stream', (req, res) => {

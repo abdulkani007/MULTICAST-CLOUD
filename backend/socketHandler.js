@@ -1,5 +1,5 @@
-// Use mock controller (no FFmpeg required)
-const streamController = require('./streamController-mock');
+// Use pure JS controller (NO dependencies required!)
+const streamController = require('./streamController-nocanvas');
 
 function initializeSocketHandler(io) {
   // Set IO instance in stream controller for broadcasting
