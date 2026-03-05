@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart City CCTV - Multicast System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .header {
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid #2563eb;
+            padding: 20px 30px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+        }
+        .header-content {
+            max-width: 1920px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo h1 {
+            font-size: 26px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stats-bar { display: flex; gap: 30px; flex-wrap: wrap; }
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .stat-value { font-size: 20px; font-weight: bold; color: #3b82f6; }
+        .multicast-badge {
+            background: linear-gradient(135deg, #10b981, #059669);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .container {
+            max-width: 1920px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 20px;
+        }
+        .cameras-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+        }
+        .camera-card {
+            background: rgba(26, 31, 58, 0.9);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s;
+        }
+        .camera-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(37, 99, 235, 0.4);
+        }
+        .camera-header {
+            background: rgba(10, 14, 39, 0.8);
+            padding: 14px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        .camera-info { display: flex; align-items: center; gap: 12px; }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        .status-online { background: #10b981; box-shadow: 0 0 10px #10b981; }
+        .status-offline { background: #ef4444; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        .camera-name { font-weight: 600; font-size: 15px; }
+        .camera-location { font-size: 12px; color: #94a3b8; }
+        .live-badge {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stream-container { position: relative; background: #000; aspect-ratio: 16/9; }
+        .stream-container img { width: 100%; height: 100%; object-fit: cover; }
+        .stream-overlay {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #10b981;
+            font-weight: bold;
+            border: 1px solid #10b981;
+        }
+        .viewer-count {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(59, 130, 246, 0.9);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .motion-alert {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(239, 68, 68, 0.95);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .offline-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .camera-controls {
+            padding: 14px 18px;
+            background: rgba(10, 14, 39, 0.6);
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-start { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-stop { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .btn-snapshot { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+        .panel {
+            background: rgba(26, 31, 58, 0.9);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+        }
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #3b82f6;
+        }
+        .bandwidth-info {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .bandwidth-info h4 {
+            color: #10b981;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        .bandwidth-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        .bandwidth-row:last-child { border-bottom: none; }
+        .event-log { max-height: 300px; overflow-y: auto; }
+        .event {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(10, 14, 39, 0.6);
+            border-left: 3px solid #3b82f6;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .event.motion { border-left-color: #ef4444; }
+        .event.snapshot { border-left-color: #10b981; }
+        .event-time { color: #94a3b8; font-size: 11px; margin-bottom: 4px; }
+        .config-item { margin-bottom: 16px; }
+        .config-label { font-size: 13px; color: #94a3b8; margin-bottom: 8px; display: block; }
+        .config-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(10, 14, 39, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+        }
+        .btn-update {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .add-camera-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        @media (max-width: 1400px) {
+            .container { grid-template-columns: 1fr; }
+            .cameras-grid { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span style="font-size: 32px;">🏙️</span>
+                <div>
+                    <h1>Smart City CCTV - Multicast System</h1>
+                    <p style="font-size: 12px; color: #94a3b8;">One Stream → Multiple Viewers (Bandwidth Optimized)</p>
+                </div>
+            </div>
+            <div class="stats-bar">
+                <div class="multicast-badge">
+                    📡 MULTICAST ENABLED
+                </div>
+                <div class="stat">
+                    <span>📹</span>
+                    <div>
+                        <div style="font-size: 11px; color: #94a3b8;">Cameras</div>
+                        <div class="stat-value" id="totalCameras">0</div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <span>👥</span>
+                    <div>
+                        <div style="font-size: 11px; color: #94a3b8;">Total Viewers</div>
+                        <div class="stat-value" id="totalViewers">0</div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <span>💾</span>
+                    <div>
+                        <div style="font-size: 11px; color: #94a3b8;">Bandwidth Saved</div>
+                        <div class="stat-value" id="bandwidthSaved">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="cameras-grid" id="camerasGrid"></div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <div class="panel-title">📊 Multicast Efficiency</div>
+                <div class="bandwidth-info">
+                    <h4>🎯 Bandwidth Optimization</h4>
+                    <div class="bandwidth-row">
+                        <span>Stream Size:</span>
+                        <strong id="streamSize">2.5 Mbps</strong>
+                    </div>
+                    <div class="bandwidth-row">
+                        <span>Active Viewers:</span>
+                        <strong id="activeViewers">0</strong>
+                    </div>
+                    <div class="bandwidth-row">
+                        <span>Without Multicast:</span>
+                        <strong id="withoutMulticast">0 Mbps</strong>
+                    </div>
+                    <div class="bandwidth-row">
+                        <span>With Multicast:</span>
+                        <strong style="color: #10b981;" id="withMulticast">2.5 Mbps</strong>
+                    </div>
+                    <div class="bandwidth-row">
+                        <span>Bandwidth Saved:</span>
+                        <strong style="color: #10b981; font-size: 18px;" id="savedBandwidth">0%</strong>
+                    </div>
+                </div>
+                <p style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
+                    ✅ <strong>Multicast:</strong> One camera stream is shared by all viewers.<br>
+                    ✅ <strong>Efficiency:</strong> Bandwidth = Stream size (not Stream × Viewers)<br>
+                    ✅ <strong>Result:</strong> Massive bandwidth savings!
+                </p>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">📋 System Events</div>
+                <div class="event-log" id="eventLog"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">⚙️ Camera Configuration</div>
+                <div id="cameraConfig"></div>
+                <button class="add-camera-btn" onclick="addNewCamera()">➕ Add New Camera</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        let socket;
+        let currentUser = 'Connecting...';
+        let cameras = [
+            { id: 1, name: 'Camera 01', location: 'Main Entrance', url: 'http://10.48.118.246:8080/video', online: false, motion: false, viewers: [] },
+            { id: 2, name: 'Camera 02', location: 'Parking Area', url: 'http://192.168.1.100:8080/video', online: false, motion: false, viewers: [] },
+            { id: 3, name: 'Camera 03', location: 'Back Gate', url: 'http://192.168.1.101:8080/video', online: false, motion: false, viewers: [] }
+        ];
+        let alertCount = 0;
+        let nextCameraId = 4;
+        const STREAM_SIZE = 2.5;
+
+        // Initialize Socket.IO connection
+        function connectSocket() {
+            socket = io('http://localhost:5000', {
+                transports: ['websocket', 'polling']
+            });
+
+            socket.on('connect', () => {
+                console.log('✅ Connected to server');
+                addEvent('🔗 Connected to server', 'system');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Disconnected from server');
+                addEvent('⚠️ Disconnected from server', 'warning');
+            });
+
+            socket.on('your-username', (username) => {
+                currentUser = username;
+                console.log('👤 Your username:', username);
+                addEvent(`👤 You are: ${username}`, 'system');
+            });
+
+            socket.on('all-viewers', (allViewers) => {
+                console.log('📊 Received all viewers:', allViewers);
+                Object.keys(allViewers).forEach(cameraId => {
+                    const cam = cameras.find(c => c.id == cameraId);
+                    if (cam) {
+                        cam.viewers = allViewers[cameraId].map(v => v.username);
+                    }
+                });
+                renderCameras();
+                updateStats();
+            });
+
+            socket.on('camera-viewers', (data) => {
+                console.log(`👁️ Camera ${data.cameraId} viewers update:`, data.viewers);
+                const cam = cameras.find(c => c.id == data.cameraId);
+                if (cam) {
+                    cam.viewers = data.viewers.map(v => v.username);
+                    renderCameras();
+                    updateStats();
+                }
+            });
+        }
+
+        function init() {
+            connectSocket();
+            renderCameras();
+            renderConfig();
+            updateStats();
+            
+            setInterval(() => {
+                cameras.forEach(cam => {
+                    if (cam.online && Math.random() > 0.85) triggerMotion(cam.id);
+                });
+            }, 8000);
+        }
+
+        function renderCameras() {
+            const grid = document.getElementById('camerasGrid');
+            grid.innerHTML = cameras.map(cam => `
+                <div class="camera-card">
+                    <div class="camera-header">
+                        <div class="camera-info">
+                            <div class="status-indicator ${cam.online ? 'status-online' : 'status-offline'}"></div>
+                            <div>
+                                <div class="camera-name">${cam.name}</div>
+                                <div class="camera-location">📍 ${cam.location}</div>
+                            </div>
+                        </div>
+                        ${cam.online ? '<div class="live-badge"><span>●</span> LIVE</div>' : ''}
+                    </div>
+                    <div class="stream-container">
+                        ${cam.online ? `
+                            <img id="stream${cam.id}" src="${cam.url}?t=${Date.now()}" onerror="handleError(${cam.id})">
+                            <div class="stream-overlay">🔴 MULTICAST</div>
+                            <div class="viewer-count">👥 ${cam.viewers.length} Viewer${cam.viewers.length !== 1 ? 's' : ''}</div>
+                            ${cam.motion ? '<div class="motion-alert">⚠️ MOTION</div>' : ''}
+                        ` : `
+                            <div class="offline-screen">
+                                <div style="font-size: 60px; opacity: 0.5;">📹</div>
+                                <div style="color: #94a3b8;">Camera Offline</div>
+                            </div>
+                        `}
+                    </div>
+                    ${cam.online && cam.viewers.length > 0 ? `
+                        <div style="padding: 10px; background: #1e293b; border-top: 1px solid #334155; max-height: 80px; overflow-y: auto;">
+                            <div style="font-size: 10px; color: #94a3b8; margin-bottom: 5px; font-weight: 600;">ACTIVE VIEWERS:</div>
+                            ${cam.viewers.map(v => `<span style="display: inline-block; background: #0f172a; padding: 2px 6px; border-radius: 4px; margin: 2px; font-size: 10px; color: ${v === currentUser ? '#10b981' : '#64748b'};">${v === currentUser ? '🟢' : '👤'} ${v}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    <div class="camera-controls">
+                        <button class="btn ${cam.online ? 'btn-stop' : 'btn-start'}" onclick="toggleCamera(${cam.id})">
+                            ${cam.online ? '⏹️ Stop' : '▶️ Start'}
+                        </button>
+                        <button class="btn btn-snapshot" onclick="captureSnapshot(${cam.id})" ${!cam.online ? 'disabled' : ''}>
+                            📸 Snapshot
+                        </button>
+                        <button class="btn" style="background: #ef4444;" onclick="removeCamera(${cam.id})">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderConfig() {
+            const config = document.getElementById('cameraConfig');
+            config.innerHTML = cameras.map(cam => `
+                <div class="config-item">
+                    <label class="config-label">${cam.name} URL</label>
+                    <input type="text" class="config-input" id="url${cam.id}" value="${cam.url}" placeholder="http://IP:8080/video">
+                </div>
+            `).join('') + '<button class="btn-update" onclick="updateAllUrls()">💾 Update All URLs</button>';
+        }
+
+        function toggleCamera(id) {
+            const cam = cameras.find(c => c.id === id);
+            cam.online = !cam.online;
+            
+            if (cam.online) {
+                console.log(`📹 Starting camera ${id}`);
+                socket.emit('watch-camera', id);
+                addEvent(`${cam.name} started - You are viewing`, 'system');
+            } else {
+                console.log(`⏹️ Stopping camera ${id}`);
+                socket.emit('unwatch-camera', id);
+                addEvent(`${cam.name} stopped`, 'warning');
+                cam.motion = false;
+                cam.viewers = [];
+            }
+            
+            renderCameras();
+            updateStats();
+        }
+
+        function captureSnapshot(id) {
+            const cam = cameras.find(c => c.id === id);
+            const img = document.getElementById(`stream${id}`);
+            if (img && img.complete) {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || 1280;
+                canvas.height = img.naturalHeight || 720;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${cam.name.replace(/\s/g, '_')}_${Date.now()}.jpg`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    addEvent(`📸 Snapshot captured from ${cam.name}`, 'snapshot');
+                });
+            }
+        }
+
+        function triggerMotion(id) {
+            const cam = cameras.find(c => c.id === id);
+            if (!cam.online || cam.motion) return;
+            cam.motion = true;
+            alertCount++;
+            addEvent(`⚠️ Motion detected in ${cam.name}`, 'motion');
+            renderCameras();
+            updateStats();
+            setTimeout(() => { cam.motion = false; renderCameras(); }, 5000);
+        }
+
+        function handleError(id) {
+            setTimeout(() => {
+                const img = document.getElementById(`stream${id}`);
+                const cam = cameras.find(c => c.id === id);
+                if (img && cam.online) img.src = cam.url + '?t=' + Date.now();
+            }, 3000);
+        }
+
+        function addEvent(message, type = 'system') {
+            const log = document.getElementById('eventLog');
+            const event = document.createElement('div');
+            event.className = `event ${type}`;
+            event.innerHTML = `<div class="event-time">${new Date().toLocaleTimeString()}</div><div>${message}</div>`;
+            log.insertBefore(event, log.firstChild);
+            while (log.children.length > 50) log.removeChild(log.lastChild);
+        }
+
+        function updateStats() {
+            const totalViewers = cameras.reduce((sum, cam) => sum + cam.viewers.length, 0);
+            const onlineCameras = cameras.filter(c => c.online).length;
+            const withoutMulticast = totalViewers * STREAM_SIZE;
+            const withMulticast = onlineCameras * STREAM_SIZE;
+            const saved = totalViewers > 0 ? ((withoutMulticast - withMulticast) / withoutMulticast * 100).toFixed(0) : 0;
+
+            document.getElementById('totalCameras').textContent = cameras.length;
+            document.getElementById('totalViewers').textContent = totalViewers;
+            document.getElementById('bandwidthSaved').textContent = saved + '%';
+            document.getElementById('activeViewers').textContent = totalViewers;
+            document.getElementById('withoutMulticast').textContent = withoutMulticast.toFixed(1) + ' Mbps';
+            document.getElementById('withMulticast').textContent = withMulticast.toFixed(1) + ' Mbps';
+            document.getElementById('savedBandwidth').textContent = saved + '%';
+            document.getElementById('streamSize').textContent = STREAM_SIZE + ' Mbps';
+        }
+
+        function updateAllUrls() {
+            cameras.forEach(cam => {
+                const input = document.getElementById(`url${cam.id}`);
+                if (input) cam.url = input.value;
+            });
+            renderCameras();
+            addEvent('📡 Camera URLs updated', 'system');
+        }
+
+        function addNewCamera() {
+            const url = prompt('Enter camera URL (e.g., http://100.78.61.193:8080/video):');
+            if (url) {
+                cameras.push({ id: nextCameraId++, name: `Camera ${cameras.length + 1}`, location: 'New Location', url, online: false, motion: false, viewers: [] });
+                renderCameras();
+                renderConfig();
+                updateStats();
+                addEvent(`➕ New camera added`, 'system');
+            }
+        }
+
+        function removeCamera(id) {
+            if (confirm('Remove this camera?')) {
+                cameras = cameras.filter(c => c.id !== id);
+                renderCameras();
+                renderConfig();
+                updateStats();
+                addEvent(`🗑️ Camera removed`, 'warning');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

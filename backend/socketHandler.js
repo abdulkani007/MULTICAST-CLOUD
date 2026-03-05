@@ -1,60 +1,53 @@
-// Use pure JS controller (NO dependencies required!)
-const streamController = require('./streamController-nocanvas');
+// Track viewers per camera
+const cameraViewers = {}; // { cameraId: [{ socketId, username }] }
 
 function initializeSocketHandler(io) {
-  // Set IO instance in stream controller for broadcasting
-  streamController.setIO(io);
-
   io.on('connection', (socket) => {
     console.log(`🔌 Client connected: ${socket.id}`);
+    const username = 'User_' + Math.floor(Math.random() * 1000);
+    socket.username = username;
 
-    // Add viewer to the multicast group
-    streamController.addViewer(socket.id);
+    // Send username to client
+    socket.emit('your-username', username);
+    
+    // Send current viewers for all cameras
+    socket.emit('all-viewers', cameraViewers);
 
-    // Broadcast updated viewer count to all clients
-    io.emit('viewer-count', streamController.getViewerCount());
+    // Handle camera viewing
+    socket.on('watch-camera', (cameraId) => {
+      console.log(`👁️ ${username} watching camera ${cameraId}`);
+      if (!cameraViewers[cameraId]) cameraViewers[cameraId] = [];
+      if (!cameraViewers[cameraId].find(v => v.socketId === socket.id)) {
+        cameraViewers[cameraId].push({ socketId: socket.id, username });
+        console.log(`📊 Camera ${cameraId} viewers:`, cameraViewers[cameraId].length);
+        io.emit('camera-viewers', { cameraId, viewers: cameraViewers[cameraId] });
+      }
+    });
 
-    // Send current stream status to new client
-    socket.emit('stream-status', streamController.getStatus());
+    socket.on('unwatch-camera', (cameraId) => {
+      console.log(`👋 ${username} stopped watching camera ${cameraId}`);
+      if (cameraViewers[cameraId]) {
+        cameraViewers[cameraId] = cameraViewers[cameraId].filter(v => v.socketId !== socket.id);
+        console.log(`📊 Camera ${cameraId} viewers:`, cameraViewers[cameraId].length);
+        io.emit('camera-viewers', { cameraId, viewers: cameraViewers[cameraId] });
+      }
+    });
 
     // Handle client disconnect
     socket.on('disconnect', () => {
       console.log(`🔌 Client disconnected: ${socket.id}`);
-      streamController.removeViewer(socket.id);
       
-      // Broadcast updated viewer count
-      io.emit('viewer-count', streamController.getViewerCount());
-    });
-
-    // Handle stream control requests
-    socket.on('start-stream', () => {
-      console.log(`🎬 Client ${socket.id} requested stream start`);
-      const result = streamController.startStream();
-      console.log(`📤 Stream start result:`, result);
-      io.emit('stream-status', streamController.getStatus());
-      socket.emit('stream-control-response', result);
-    });
-
-    socket.on('stop-stream', () => {
-      console.log(`⏹️ Client ${socket.id} requested stream stop`);
-      const result = streamController.stopStream();
-      console.log(`📤 Stream stop result:`, result);
-      io.emit('stream-status', streamController.getStatus());
-      socket.emit('stream-control-response', result);
-    });
-
-    // Request status update
-    socket.on('request-status', () => {
-      socket.emit('stream-status', streamController.getStatus());
+      // Remove from all cameras
+      Object.keys(cameraViewers).forEach(cameraId => {
+        const before = cameraViewers[cameraId].length;
+        cameraViewers[cameraId] = cameraViewers[cameraId].filter(v => v.socketId !== socket.id);
+        if (before !== cameraViewers[cameraId].length) {
+          console.log(`📊 Camera ${cameraId} viewers:`, cameraViewers[cameraId].length);
+          io.emit('camera-viewers', { cameraId, viewers: cameraViewers[cameraId] });
+        }
+      });
     });
   });
-
-  // Broadcast status updates every 2 seconds
-  setInterval(() => {
-    if (streamController.isStreaming) {
-      io.emit('stream-status', streamController.getStatus());
-    }
-  }, 2000);
 }
 
 module.exports = { initializeSocketHandler };

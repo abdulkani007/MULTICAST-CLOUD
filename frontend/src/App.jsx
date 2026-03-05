@@ -1,12 +1,8 @@
 import React from 'react';
-import Dashboard from './pages/Dashboard';
+import MulticastDashboard from './pages/MulticastDashboard';
 
 function App() {
-  return (
-    <div className="App">
-      <Dashboard />
-    </div>
-  );
+  return <MulticastDashboard />;
 }
 
 export default App;
